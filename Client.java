@@ -9,6 +9,8 @@ public class Client {
     private static int port;
     private static int reqCount = 0;
     private static int serverNum = 7;
+    private static int level = 0;
+    private static int finishWrite = 0;
     private static int repliedCount = 0;
     private static int msgSentCS, msgSentTotal = 0;
     private static int msgRecivedTotal = 0;
@@ -17,11 +19,46 @@ public class Client {
     private static long resTimestamp=0L;
     private static final String file = "/home/012/y/yx/yxm180012/cs6378/proj2/treeBaseQuorumSystem.txt";
     private static ArrayList<Integer> quorum;
-
+    
     public static HashMap<Integer,Socket> socketMap = new HashMap<Integer,Socket>();
     public static HashMap<Socket,PrintWriter> outs = new HashMap<Socket,PrintWriter>();
     public static HashMap<Socket,BufferedReader> ins = new HashMap<Socket,BufferedReader>();
-
+ 
+	private static int VN = 0;
+	private static int RU = 8;
+	private static int DS = 0;
+    private static int[][][] components = new int[][][] { {{0,1,2,3,4,5,6,7},
+    												{0,1,2,3},
+    												{0},
+    												{0}},
+    											   {{0,1,2,3,4,5,6,7},
+													{0,1,2,3},
+													{1,2,3},
+													{1,2,3,4,5,6}},
+    												{{0,1,2,3,4,5,6,7},
+													{0,1,2,3},
+													{1,2,3},
+													{1,2,3,4,5,6}},
+    												{{0,1,2,3,4,5,6,7},
+													{0,1,2,3},
+													{1,2,3},
+													{1,2,3,4,5,6}},
+    												{{0,1,2,3,4,5,6,7},
+													{4,5,6,7},
+													{4,5,6},
+													{1,2,3,4,5,6}},
+    												{{0,1,2,3,4,5,6,7},
+													{4,5,6,7},
+													{4,5,6},
+													{1,2,3,4,5,6}},
+    												{{0,1,2,3,4,5,6,7},
+													{4,5,6,7},
+													{4,5,6},
+													{1,2,3,4,5,6}},
+    												{{0,1,2,3,4,5,6,7},
+													{4,5,6,7},
+													{7},
+													{7}}};
     public static ArrayList<ArrayList<Integer>> coterie = new ArrayList<ArrayList<Integer>> () {
         {
             add(new ArrayList<Integer>(Arrays.asList(1,2,4)));
@@ -81,7 +118,7 @@ public class Client {
         }
 
         // send completion notification after into cs 20 times
-        while (reqCount < 20)
+        while (level < 4)
         {
             try {
                 Thread.sleep(rand.nextInt(6)+5);
@@ -89,13 +126,48 @@ public class Client {
                 e.printStackTrace();
             }
 
-            if (!reqFlag) {
-                request2CS();
+            if (startVote()) {
+                request2vote();
             }
         }
         msgToServer(1, "COMPLETION");
     }
+    
+    private boolean startVote() {
+    	if (finishWrite >= 2) {
+    		return false;
+    	}
+    	if (level == 0 && clientID == 0) {
+    		return true;
+    	}
+    	if (level == 1 && (clientID == 0 || clientID == 4)) {
+    		return true;
+    	}
+    	if (level == 2 && (clientID == 0 || clientID == 1 || clientID == 4 || clientID == 7)) {
+    		return true;
+    	}
+    	if (level == 3 && clientID == 0 || clientID == 1|| clientID == 7) {
+    		return true;
+    	}
+    	return false;
+    }
 
+    private void request2vote() {
+		int[] ClientsInComponent = components[clientID][level];
+		
+		String reqMsg;
+
+        reqTimestamp = (new Timestamp(System.currentTimeMillis())).getTime();
+
+        reqMsg = "Write Level " + level + " Start Client " + clientID + " Other Cleint " + ClientsInComponent;
+		
+		for (int c: ClientsInComponent) {
+			msgToClient(c, reqMsg);
+		}
+		
+	}
+    
+    
     public static class MsgHandler implements Runnable {
         private Socket socket;
         private BufferedReader in;
@@ -114,16 +186,22 @@ public class Client {
 
                     System.out.println("Client " + clientID + " received msg: (" + inputLine + ") from  " + socket.getRemoteSocketAddress());
                     splitStr = inputLine.split("\\s+");
-
-                    if ("GRANT".equals(splitStr[0])) {
-                        // into cs
-                        if (++repliedCount == quorum.size()) {
-                            criticalSection();
-                            releaseCS();
-                            msgRecivedTotal += repliedCount;
-                            msgSentTotal += msgSentCS;
-                            reqFlag = false;
-                        }
+                    
+                    if ("Write".equals(splitStr[0])) {
+                    	int level = Integer.parseInt(splitStr[2]);
+                    	int fromClient = Integer.parseInt(splitStr[5]);
+                    	if (valideVote(fromClient, level)) {
+                    		appendStrToFile(file, inputLine);
+                    	}
+                    	finishWrite ++;
+                    	
+//                        if (++repliedCount == quorum.size()) {
+//                            criticalSection();
+//                            releaseCS();
+//                            msgRecivedTotal += repliedCount;
+//                            msgSentTotal += msgSentCS;
+//                            reqFlag = false;
+//                        }
                     } else if ("END".equals(splitStr[0])) {
                         if (clientID == 1) {
                             for (PrintWriter outf : outs.values()) {
@@ -142,7 +220,26 @@ public class Client {
             }
         }
     }
-
+    
+    public static boolean valideVote(int level, int fromClient) {
+    	int[] ClientsInComponent = components[fromClient][level];
+    	if (ClientsInComponent.length * 2 == RU) {
+    		return Arrays.asList(ClientsInComponent).contains(DS);
+    	}
+    	if (ClientsInComponent.length * 2 > RU) {
+    		DS = ClientsInComponent[0];
+    		return true;
+    	}
+    	return false;
+    }
+    
+    public synchronized static void msgToClient(int Client, String msg) {
+        System.out.println("Send (" + msg + ") to server " + Client + " " + socketMap.get(Client).getRemoteSocketAddress());
+        PrintWriter out = outs.get(socketMap.get(Client));
+        out.println(msg);
+        out.flush();
+    }
+    
     public synchronized static void msgToServer(int server, String msg) {
         msgSentCS++;
         System.out.println("Send (" + msg + ") to server " + server + " " + socketMap.get(server).getRemoteSocketAddress());
