@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.ServerSocket;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,11 +64,13 @@ public class Client {
         // wait servers
         try {
             ssocket = new ServerSocket(port);
-            socket = ssocket.accept();
             Thread.sleep(600);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
+
         initConnection();
         try {
             Thread.sleep(100);
@@ -128,8 +131,6 @@ public class Client {
         int[] ClientsInComponent = components[clientID][level];
 
         String reqMsg;
-
-        reqTimestamp = (new Timestamp(System.currentTimeMillis())).getTime();
 
         reqMsg = "Write Level " + level + " Start Client " + clientID + " Other Cleint " + ClientsInComponent;
 
