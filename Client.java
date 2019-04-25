@@ -12,30 +12,22 @@ import java.util.HashMap;
 import java.util.Random;
 
 public class Client {
-    private static boolean reqFlag = false;
-    private static int clientID;
-    private static int port;
-    private static int reqCount = 0;
-    private static int serverNum = 7;
-    private static int level = 0;
-    private static int finishWrite = 0;
-    private static int repliedCount = 0;
-    private static int msgSentCS, msgSentTotal = 0;
-    private static int msgRecivedTotal = 0;
-    private static long reqTimestamp=0L;
-    private static long csTimestamp=0L;
-    private static long resTimestamp=0L;
-    private static String filePath = "/home/012/y/yx/yxm180012/cs6378/proj3/";
-    private static ArrayList<Integer> quorum;
     private static boolean successVote = false;
+    private static int port;
+    private static int VN = 0;
+    private static int RU = 8;
+    private static int DS = 0;
+    private static int clientID;
+    private static int level = 0;
+    private static int serverNum = 8;
+    private static int finishWrite = 0;
+    private static String filePath = "/home/012/y/yx/yxm180012/cs6378/proj3/";
+    private static ServerSocket ssocket;
 
     public static HashMap<Integer,Socket> socketMap = new HashMap<Integer,Socket>();
     public static HashMap<Socket,PrintWriter> outs = new HashMap<Socket,PrintWriter>();
     public static HashMap<Socket,BufferedReader> ins = new HashMap<Socket,BufferedReader>();
 
-    private static int VN = 0;
-    private static int RU = 8;
-    private static int DS = 0;
     //clientID, level, ReachableClient
     private static int[][][] components = new int[][][] {
         {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {0},{0}},
@@ -70,11 +62,13 @@ public class Client {
 
         // wait servers
         try {
+            ssocket = new ServerSocket(port);
+            socket = ssocket.accept();
             Thread.sleep(600);
-        } catch (InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
-        buildConnection();
+        initConnection();
         try {
             Thread.sleep(100);
         } catch (InterruptedException e) {
@@ -224,25 +218,39 @@ public class Client {
         }
     }
 
-    public static void buildConnection () {
+    public static void initConnection () {
         Socket socket;
         PrintWriter out;
         BufferedReader in;
 
         try {
             for (int i = 1; i <= serverNum; i++) {
-                socket = new Socket(serverInfo.get(i), port);
-                System.out.println("Client " + clientID + " connects to " + socket.getRemoteSocketAddress());
-                socketMap.put(i,socket);
+                if (i != clientID) {
+                    socket = new Socket(serverInfo.get(i), port);
+                    System.out.println("Client " + clientID + " connects to " + socket.getRemoteSocketAddress());
+                    socketMap.put(i,socket);
 
-                out = new PrintWriter(socket.getOutputStream(), true);
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                outs.put(socket, out);
-                ins.put(socket, in);
+                    out = new PrintWriter(socket.getOutputStream(), true);
+                    in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    outs.put(socket, out);
+                    ins.put(socket, in);
+                }
             }
         } catch (Exception e){
             e.printStackTrace();
         }
+    }
+
+    // intput: components after partition
+    public static void partition (int[] componentA, int[] componentB) {
+        for (PrintWriter out : outs.values()) {
+            out.close();
+        }
+    }
+
+   // intput: components need to merge
+    public static void merge (int[] componentA, int[] componentB) {
+
     }
 
     public static void stop() {
