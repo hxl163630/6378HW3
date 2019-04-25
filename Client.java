@@ -17,7 +17,7 @@ public class Client {
     private static long reqTimestamp=0L;
     private static long csTimestamp=0L;
     private static long resTimestamp=0L;
-    private static final String file = "/home/012/y/yx/yxm180012/cs6378/proj2/treeBaseQuorumSystem.txt";
+    private static final String file = "/home/012/y/yx/yxm180012/cs6378/proj3";
     private static ArrayList<Integer> quorum;
 
     public static HashMap<Integer,Socket> socketMap = new HashMap<Integer,Socket>();
@@ -27,6 +27,7 @@ public class Client {
     private static int VN = 0;
     private static int RU = 8;
     private static int DS = 0;
+    //clientID, level, ReachableClient
     private static int[][][] components = new int[][][] {
         {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {0},{0}},
         {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
@@ -104,7 +105,13 @@ public class Client {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
+            while (finishWrite < 2) {
+                if (startVote()) {
+                    request2vote();
+                }
+            }
+            finishWrite = 0;
+            level++;
             if (startVote()) {
                 request2vote();
             }
@@ -188,7 +195,6 @@ public class Client {
                                 outf.flush();
                             }
                         }
-                        
                         System.out.println("###  total number of messages sent: " + msgSentTotal + ", total number of messages received: " + msgRecivedTotal);
                         stop();
                     } else {
