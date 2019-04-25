@@ -4,15 +4,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.net.Socket;
 import java.net.ServerSocket;
-import java.sql.Timestamp;
-import java.util.ArrayList;
+import java.net.Socket;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Random;
 
-public class Client {
+public class Client implements Runnable {
     private static boolean successVote = false;
     private static int port;
     private static int VN = 0;
@@ -78,7 +76,14 @@ public class Client {
             e.printStackTrace();
         }
 
-        //start threads to read sockets
+
+    }
+
+
+    @Override
+    public void run() {
+
+       //start threads to read sockets
         for (Socket socket : socketMap.values()) {
             Thread t = new Thread(new MsgHandler(socket));
             t.start();
@@ -107,6 +112,7 @@ public class Client {
             level++;
         }
     }
+
 
     private boolean startVote() {
         if (finishWrite >= 2) {
@@ -282,11 +288,15 @@ public class Client {
         if (args.length > 0){
             try{
                 // get start
-                new Client(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
+                Client c = new Client(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
+                Thread t = new Thread(c);
+                t.start();
             } catch (NumberFormatException e){
                 System.err.println("Argument must be an integer");
                 System.exit(1);
             }
         }
     }
+
+
 }
