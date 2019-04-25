@@ -1,7 +1,15 @@
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Random;
 
 public class Client {
     private static boolean reqFlag = false;
@@ -19,6 +27,7 @@ public class Client {
     private static long resTimestamp=0L;
     private static final String file = "/home/012/y/yx/yxm180012/cs6378/proj3";
     private static ArrayList<Integer> quorum;
+    private static boolean successVote = false;
 
     public static HashMap<Integer,Socket> socketMap = new HashMap<Integer,Socket>();
     public static HashMap<Socket,PrintWriter> outs = new HashMap<Socket,PrintWriter>();
@@ -98,7 +107,7 @@ public class Client {
         }
 
         // send completion notification after into cs 20 times
-        while (level < 4)
+        while (level < 1)
         {
             try {
                 Thread.sleep(rand.nextInt(6)+5);
@@ -110,11 +119,14 @@ public class Client {
                     request2vote();
                 }
             }
+            if (successVote) {
+                DS = components[clientID][level][0];
+                RU = components[clientID][level].length;
+                successVote = false;
+            }
+
             finishWrite = 0;
             level++;
-            if (startVote()) {
-                request2vote();
-            }
         }
         msgToServer(1, "COMPLETION");
     }
@@ -162,6 +174,7 @@ public class Client {
             this.socket = socket;
         }
 
+        @Override
         public synchronized void run() {
             try {
                 String inputLine;
@@ -177,6 +190,8 @@ public class Client {
                         int level = Integer.parseInt(splitStr[2]);
                         int fromClient = Integer.parseInt(splitStr[5]);
                         if (valideVote(fromClient, level)) {
+                            VN ++;
+                            successVote = true;
                             appendStrToFile(file, inputLine);
                         }
                         finishWrite ++;
@@ -209,11 +224,11 @@ public class Client {
 
     public static boolean valideVote(int level, int fromClient) {
         int[] ClientsInComponent = components[fromClient][level];
+
         if (ClientsInComponent.length * 2 == RU) {
             return Arrays.asList(ClientsInComponent).contains(DS);
         }
         if (ClientsInComponent.length * 2 > RU) {
-            DS = ClientsInComponent[0];
             return true;
         }
         return false;
