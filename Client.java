@@ -25,7 +25,7 @@ public class Client {
     private static long reqTimestamp=0L;
     private static long csTimestamp=0L;
     private static long resTimestamp=0L;
-    private static final String file = "/home/012/y/yx/yxm180012/cs6378/proj3";
+    private static String filePath = "/home/012/y/yx/yxm180012/cs6378/proj3/";
     private static ArrayList<Integer> quorum;
     private static boolean successVote = false;
 
@@ -48,29 +48,10 @@ public class Client {
         {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {7}, {7}}
     };
 
-    public static ArrayList<ArrayList<Integer>> coterie = new ArrayList<ArrayList<Integer>> () {
-        {
-            add(new ArrayList<Integer>(Arrays.asList(1,2,4)));
-            add(new ArrayList<Integer>(Arrays.asList(1,2,5)));
-            add(new ArrayList<Integer>(Arrays.asList(1,3,6)));
-            add(new ArrayList<Integer>(Arrays.asList(1,3,7)));
-            add(new ArrayList<Integer>(Arrays.asList(2,3,4,6)));
-            add(new ArrayList<Integer>(Arrays.asList(2,3,4,7)));
-            add(new ArrayList<Integer>(Arrays.asList(2,3,5,6)));
-            add(new ArrayList<Integer>(Arrays.asList(2,3,5,7)));
-            add(new ArrayList<Integer>(Arrays.asList(1,4,5)));
-            add(new ArrayList<Integer>(Arrays.asList(1,6,7)));
-            add(new ArrayList<Integer>(Arrays.asList(3,4,5,6)));
-            add(new ArrayList<Integer>(Arrays.asList(3,4,5,7)));
-            add(new ArrayList<Integer>(Arrays.asList(2,4,6,7)));
-            add(new ArrayList<Integer>(Arrays.asList(2,5,6,7)));
-            add(new ArrayList<Integer>(Arrays.asList(4,5,6,7)));
-        }
-    };
-
     public static HashMap<Integer, String> serverInfo = new HashMap<Integer, String>() {
         private static final long serialVersionUID = 1L;
         {
+            put(0,"dc10.utdallas.edu");
             put(1,"dc11.utdallas.edu");
             put(2,"dc12.utdallas.edu");
             put(3,"dc13.utdallas.edu");
@@ -95,7 +76,7 @@ public class Client {
         }
         buildConnection();
         try {
-            Thread.sleep(600+rand.nextInt(100));
+            Thread.sleep(100);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -110,7 +91,7 @@ public class Client {
         while (level < 1)
         {
             try {
-                Thread.sleep(rand.nextInt(6)+5);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -128,7 +109,6 @@ public class Client {
             finishWrite = 0;
             level++;
         }
-        msgToServer(1, "COMPLETION");
     }
 
     private boolean startVote() {
@@ -165,7 +145,6 @@ public class Client {
 
     }
 
-
     public static class MsgHandler implements Runnable {
         private Socket socket;
         private BufferedReader in;
@@ -192,17 +171,9 @@ public class Client {
                         if (valideVote(fromClient, level)) {
                             VN ++;
                             successVote = true;
-                            appendStrToFile(file, inputLine);
+                            appendStrToFile(filePath.concat(Integer.toString(clientID)) + "/X.txt", inputLine);
                         }
                         finishWrite ++;
-
-//                        if (++repliedCount == quorum.size()) {
-//                            criticalSection();
-//                            releaseCS();
-//                            msgRecivedTotal += repliedCount;
-//                            msgSentTotal += msgSentCS;
-//                            reqFlag = false;
-//                        }
                     } else if ("END".equals(splitStr[0])) {
                         if (clientID == 1) {
                             for (PrintWriter outf : outs.values()) {
@@ -210,7 +181,6 @@ public class Client {
                                 outf.flush();
                             }
                         }
-                        System.out.println("###  total number of messages sent: " + msgSentTotal + ", total number of messages received: " + msgRecivedTotal);
                         stop();
                     } else {
                         System.out.println("Command Not Yet Support!");
@@ -241,42 +211,6 @@ public class Client {
         out.flush();
     }
 
-    public synchronized static void msgToServer(int server, String msg) {
-        msgSentCS++;
-        System.out.println("Send (" + msg + ") to server " + server + " " + socketMap.get(server).getRemoteSocketAddress());
-        PrintWriter out = outs.get(socketMap.get(server));
-        out.println(msg);
-        out.flush();
-    }
-
-    public static void request2CS() {
-        String reqMsg;
-        reqFlag = true;
-        msgSentCS = 0;
-        repliedCount = 0;
-
-        reqTimestamp = (new Timestamp(System.currentTimeMillis())).getTime();
-        if (resTimestamp != 0L) {
-            System.out.println("### time between a client exiting its CS and issuing its next request: " + (reqTimestamp - resTimestamp));
-        }
-
-        // prepare message and send it to its quorum
-        System.out.println("****** " + "reqCount: " + reqCount + " ******");
-        reqCount++;
-        quorum = coterie.get(rand.nextInt(15));
-        System.out.println("quorum " + quorum);
-        reqMsg = "REQUEST " + clientID + " " + reqTimestamp;
-        for (Integer serverNum : quorum) {
-            msgToServer(serverNum, reqMsg);
-        }
-    }
-
-    public static void releaseCS() {
-        for (Integer serverNum : quorum) {
-            msgToServer(serverNum, "RELEASE " + clientID);
-        }
-    }
-
     public static void appendStrToFile(String fileName, String str) {
         try {
             // Open given file in append mode.
@@ -284,21 +218,10 @@ public class Client {
             out.write(str);
             out.write("\n");
             out.flush();
-
-            Thread.sleep(3);
             out.close();
         } catch (Exception e) {
             System.out.println("exception occoured" + e);
         }
-    }
-
-    public static void criticalSection() {
-        csTimestamp = (new Timestamp(System.currentTimeMillis())).getTime();
-        System.out.println("### number of messages exchanged: " + (repliedCount + msgSentCS) + ", elapsed time: " + (csTimestamp - reqTimestamp));
-        String str = "Entering - clientId: " + clientID + ", timestamp: " + reqTimestamp;
-        appendStrToFile(file, str);
-        resTimestamp = (new Timestamp(System.currentTimeMillis())).getTime();
-        System.out.println("### time spent in the CS: " + (resTimestamp - csTimestamp));
     }
 
     public static void buildConnection () {
