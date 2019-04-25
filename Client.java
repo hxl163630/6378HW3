@@ -188,6 +188,7 @@ public class Client {
                                 outf.flush();
                             }
                         }
+                        
                         System.out.println("###  total number of messages sent: " + msgSentTotal + ", total number of messages received: " + msgRecivedTotal);
                         stop();
                     } else {
