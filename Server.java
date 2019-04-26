@@ -1,22 +1,15 @@
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Random;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.stream.IntStream;
 
-public class Client implements Runnable {
+public class Server implements Runnable {
     private static boolean successVote = false;
     private static int port;
     private static int VN = 0;
     private static int RU = 8;
     private static int DS = 0;
-    private static int clientID;
+    private static int serverID;
     private static int level = 0;
     private static int serverNum = 8;
     private static int finishWrite = 0;
@@ -27,7 +20,21 @@ public class Client implements Runnable {
     public static HashMap<Socket,PrintWriter> outs = new HashMap<Socket,PrintWriter>();
     public static HashMap<Socket,BufferedReader> ins = new HashMap<Socket,BufferedReader>();
 
-    //clientID, level, ReachableClient
+    public static HashMap<Character, Integer> nameMap = new HashMap<Character, Integer>() {
+        private static final long serialVersionUID = 1L;
+        {
+            put('A',0);
+            put('B',1);
+            put('C',2);
+            put('D',3);
+            put('E',4);
+            put('F',5);
+            put('G',6);
+            put('H',7);
+        }
+    };
+
+    //serverID, level, ReachableServer
     private static int[][][] components = new int[][][] {
         {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {0},{0}},
         {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
@@ -55,14 +62,14 @@ public class Client implements Runnable {
 
     public static Random rand = new Random();
 
-    public Client(int clientID, int port) {
-        this.clientID = clientID;
+    public Server(int serverID, int port) {
+        this.serverID = serverID;
         this.port = port;
 
         // wait servers
         try {
             ssocket = new ServerSocket(port);
-            Thread.sleep(600);
+            Thread.sleep(500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -75,12 +82,8 @@ public class Client implements Runnable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
-
     }
 
-
-    @Override
     public void run() {
 
        //start threads to read sockets
@@ -103,8 +106,8 @@ public class Client implements Runnable {
                 }
             }
             if (successVote) {
-                DS = components[clientID][level][0];
-                RU = components[clientID][level].length;
+                DS = components[serverID][level][0];
+                RU = components[serverID][level].length;
                 successVote = false;
             }
 
@@ -113,35 +116,34 @@ public class Client implements Runnable {
         }
     }
 
-
     private boolean startVote() {
         if (finishWrite >= 2) {
             return false;
         }
-        if (level == 0 && clientID == 0) {
+        if (level == 0 && serverID == 0) {
             return true;
         }
-        if (level == 1 && (clientID == 0 || clientID == 4)) {
+        if (level == 1 && (serverID == 0 || serverID == 4)) {
             return true;
         }
-        if (level == 2 && (clientID == 0 || clientID == 1 || clientID == 4 || clientID == 7)) {
+        if (level == 2 && (serverID == 0 || serverID == 1 || serverID == 4 || serverID == 7)) {
             return true;
         }
-        if (level == 3 && clientID == 0 || clientID == 1|| clientID == 7) {
+        if (level == 3 && serverID == 0 || serverID == 1|| serverID == 7) {
             return true;
         }
         return false;
     }
 
     private void request2vote() {
-        int[] ClientsInComponent = components[clientID][level];
+        int[] ServersInComponent = components[serverID][level];
 
         String reqMsg;
 
-        reqMsg = "Write Level " + level + " Start Client " + clientID + " Other Cleint " + ClientsInComponent;
+        reqMsg = "Write Level " + level + " Start Server " + getKey(nameMap,serverID) + " Other Cleint " + ServersInComponent;
 
-        for (int c: ClientsInComponent) {
-            msgToClient(c, reqMsg);
+        for (int c: ServersInComponent) {
+            msgToServer(c, reqMsg);
         }
 
     }
@@ -163,20 +165,20 @@ public class Client implements Runnable {
                 while ((inputLine = in.readLine()) != null) {
                     String[] splitStr;
 
-                    System.out.println("Client " + clientID + " received msg: (" + inputLine + ") from  " + socket.getRemoteSocketAddress());
+                    System.out.println("Server " + getKey(nameMap,serverID) + " received msg: (" + inputLine + ") from  " + socket.getRemoteSocketAddress());
                     splitStr = inputLine.split("\\s+");
 
                     if ("Write".equals(splitStr[0])) {
                         int level = Integer.parseInt(splitStr[2]);
-                        int fromClient = Integer.parseInt(splitStr[5]);
-                        if (valideVote(fromClient, level)) {
+                        int fromServer = Integer.parseInt(splitStr[5]);
+                        if (valideVote(fromServer, level)) {
                             VN ++;
                             successVote = true;
-                            appendStrToFile(filePath.concat(Integer.toString(clientID)) + "/X.txt", inputLine);
+                            appendStrToFile(filePath.concat(Integer.toString(serverID)) + "/X.txt", inputLine);
                         }
                         finishWrite ++;
                     } else if ("END".equals(splitStr[0])) {
-                        if (clientID == 1) {
+                        if (serverID == 1) {
                             for (PrintWriter outf : outs.values()) {
                                 outf.println("END");
                                 outf.flush();
@@ -193,21 +195,21 @@ public class Client implements Runnable {
         }
     }
 
-    public static boolean valideVote(int level, int fromClient) {
-        int[] ClientsInComponent = components[fromClient][level];
+    public static boolean valideVote(int level, int fromServer) {
+        int[] ServersInComponent = components[fromServer][level];
 
-        if (ClientsInComponent.length * 2 == RU) {
-            return Arrays.asList(ClientsInComponent).contains(DS);
+        if (ServersInComponent.length * 2 == RU) {
+            return Arrays.asList(ServersInComponent).contains(DS);
         }
-        if (ClientsInComponent.length * 2 > RU) {
+        if (ServersInComponent.length * 2 > RU) {
             return true;
         }
         return false;
     }
 
-    public synchronized static void msgToClient(int Client, String msg) {
-        System.out.println("Send (" + msg + ") to server " + Client + " " + socketMap.get(Client).getRemoteSocketAddress());
-        PrintWriter out = outs.get(socketMap.get(Client));
+    public synchronized static void msgToServer(int Server, String msg) {
+        System.out.println("Send (" + msg + ") to server " + Server + " " + socketMap.get(Server).getRemoteSocketAddress());
+        PrintWriter out = outs.get(socketMap.get(Server));
         out.println(msg);
         out.flush();
     }
@@ -231,10 +233,10 @@ public class Client implements Runnable {
         BufferedReader in;
 
         try {
-            for (int i = 1; i <= serverNum; i++) {
-                if (i != clientID) {
+            for (int i = 0; i < serverNum; i++) {
+                if (i != serverID) {
                     socket = new Socket(serverInfo.get(i), port);
-                    System.out.println("Client " + clientID + " connects to " + socket.getRemoteSocketAddress());
+                    System.out.println("Server " + getKey(nameMap,serverID) + " connects to " + socket.getRemoteSocketAddress());
                     socketMap.put(i,socket);
 
                     out = new PrintWriter(socket.getOutputStream(), true);
@@ -250,19 +252,55 @@ public class Client implements Runnable {
 
     // intput: components after partition
     public static void partition (int[] componentA, int[] componentB) {
-        for (PrintWriter out : outs.values()) {
-            out.close();
+        if (contains(componentA,serverID)) {
+            for (int server : componentB) {
+                try {
+                    outs.get(socketMap.get(server)).close();
+                    outs.remove(socketMap.get(server));
+                    ins.get(socketMap.get(server)).close();
+                    ins.remove(socketMap.get(server));
+                    socketMap.get(server).close();
+                    socketMap.remove(server);
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
    // intput: components need to merge
     public static void merge (int[] componentA, int[] componentB) {
+        if (contains(componentA,serverID)) {
+            for (int server : componentB) {
+                try {
+                    Socket socket = new Socket(serverInfo.get(server),port);
+                    System.out.println("Server " + getKey(nameMap,serverID) + " connects to " + socket.getRemoteSocketAddress());
+                    socketMap.put(server,socket);
 
+                    PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    outs.put(socket, out);
+                    ins.put(socket, in);
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static boolean contains(final int[] array, final int v) {
+        boolean result = false;
+        for(int i : array){
+            if(i == v){
+                result = true;
+                break;
+            }
+        }
+        return result;
     }
 
     public static void stop() {
-
-        System.out.println("Client " + clientID + " closing itself");
+        System.out.println("Server " + getKey(nameMap,serverID) + " closing itself");
         try {
             for (BufferedReader in : ins.values()) {
                 in.close();
@@ -280,6 +318,15 @@ public class Client implements Runnable {
         }
     }
 
+    public static <K, V> K getKey(Map<K, V> map, V value) {
+        for (K key : map.keySet()) {
+            if (value.equals(map.get(key))) {
+                return key;
+            }
+        }
+        return null;
+    }
+
     // need user input of id
     // port(better be 49152 to 65535)
     public static void main(String[] args) throws IOException {
@@ -288,7 +335,7 @@ public class Client implements Runnable {
         if (args.length > 0){
             try{
                 // get start
-                Client c = new Client(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
+                Server c = new Server(nameMap.get(args[0].charAt(0)), Integer.parseInt(args[1]));
                 Thread t = new Thread(c);
                 t.start();
             } catch (NumberFormatException e){
