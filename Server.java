@@ -85,7 +85,7 @@ public class Server implements Runnable {
         // send completion notification after into cs 20 times
         while (level < 1)
         {
-            while (finishWrite < 2) {
+            if (finishWrite < 2) {
                 if (startVote()) {
                     request2vote();
                 }
@@ -114,19 +114,20 @@ public class Server implements Runnable {
                 String inputLine;
                 in = ins.get(socket);
 
+                //msg: "Write Level X StartServer X"
                 while ((inputLine = in.readLine()) != null) {
                     String[] splitStr;
 
-                    System.out.println("Server " + getKey(nameMap,serverID) + " received msg: (" + inputLine + ") from  " + socket.getRemoteSocketAddress());
+                    System.out.println("Received msg: (" + inputLine + ") from  " + socket.getRemoteSocketAddress());
                     splitStr = inputLine.split("\\s+");
 
                     if ("Write".equals(splitStr[0])) {
                         int level = Integer.parseInt(splitStr[2]);
-                        int fromServer = Integer.parseInt(splitStr[5]);
+                        int fromServer = Integer.parseInt(splitStr[4]);
                         if (valideVote(fromServer, level)) {
                             VN ++;
                             successVote = true;
-                            appendStrToFile(filePath.concat(Integer.toString(serverID)) + "/X.txt", inputLine);
+                            appendStrToFile(filePath + getKey(nameMap,serverID) + "/X.txt", inputLine);
                         }
                         finishWrite ++;
                     } else if ("END".equals(splitStr[0])) {
@@ -170,7 +171,8 @@ public class Server implements Runnable {
         int[] ServersInComponent = components[serverID][level];
         String reqMsg;
 
-        reqMsg = "Write Level" + level + " Start Server " + getKey(nameMap,serverID);
+        //msg: "Write Level X StartServer X"
+        reqMsg = "Write Level " + level + " StartServer " + serverID;
 
         for (int c: ServersInComponent) {
             msgToServer(c, reqMsg);
@@ -190,7 +192,7 @@ public class Server implements Runnable {
     }
 
     public synchronized static void msgToServer(int Server, String msg) {
-        System.out.println("Send (" + msg + ") to server " + getKey(nameMap,serverID) + " " + socketMap.get(Server).getRemoteSocketAddress());
+        System.out.println("Send (" + msg + ") to server" + socketMap.get(Server).getRemoteSocketAddress());
         PrintWriter out = outs.get(socketMap.get(Server));
         out.println(msg);
         out.flush();
@@ -219,11 +221,12 @@ public class Server implements Runnable {
             for (i = serverNum; i > 1; i--) { // i: [8,2]
                 j = serverNum - i;  // j: [0,6]
                 if (serverID > j) {
-                    System.out.println("Server " + serverID + " starts serverSocket " + serverInfo.get(j) + " port " + (port + serverID - 1));
+                    Thread.sleep(serverID*50);
+                    System.out.println("Server " + getKey(nameMap,serverID) + " starts clientSocket " + serverInfo.get(j) + " port " + (port + serverID - 1));
                     socket = new Socket(serverInfo.get(j), port + serverID - 1);
                     socketMap.put(j,socket);
                 } else {
-                    System.out.println("Server " + serverID + " starts serverSocket port " + (port + j));
+                    System.out.println("Server " + getKey(nameMap,serverID) + " starts serverSocket port " + (port + j));
                     ssocket = new ServerSocket(port + j);
                     socket = ssocket.accept();
                     socketMap.put(j+1,socket);
