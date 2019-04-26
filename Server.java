@@ -1,7 +1,6 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.stream.IntStream;
 
 public class Server implements Runnable {
     private static boolean successVote = false;
@@ -36,14 +35,14 @@ public class Server implements Runnable {
 
     //serverID, level, ReachableServer
     private static int[][][] components = new int[][][] {
-        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {0},{0}},
-        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
-        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
-        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
-        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
-        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
-        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
-        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {7}, {7}}
+        {{1,2,3,4,5,6,7}, {1,2,3}, {},{}},
+        {{0,2,3,4,5,6,7}, {0,2,3}, {2,3}, {2,3,4,5,6}},
+        {{0,1,3,4,5,6,7}, {0,1,3}, {1,3}, {1,3,4,5,6}},
+        {{0,1,2,4,5,6,7}, {0,1,2}, {1,2}, {1,2,4,5,6}},
+        {{0,1,2,3,5,6,7}, {5,6,7}, {5,6}, {1,2,3,5,6}},
+        {{0,1,2,3,4,6,7}, {4,6,7}, {4,6}, {1,2,3,4,6}},
+        {{0,1,2,3,4,5,7}, {4,5,7}, {4,5}, {1,2,3,4,5}},
+        {{0,1,2,3,4,5,6}, {4,5,6}, {}, {}}
     };
 
     public static HashMap<Integer, String> serverInfo = new HashMap<Integer, String>() {
@@ -67,18 +66,9 @@ public class Server implements Runnable {
         this.port = port;
 
         // wait servers
-        try {
-            ssocket = new ServerSocket(port);
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
         initConnection();
         try {
-            Thread.sleep(100);
+            Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -88,18 +78,13 @@ public class Server implements Runnable {
 
        //start threads to read sockets
         for (Socket socket : socketMap.values()) {
-            Thread t = new Thread(new MsgHandler(socket));
-            t.start();
+            Thread mh = new Thread(new MsgHandler(socket));
+            mh.start();
         }
 
         // send completion notification after into cs 20 times
         while (level < 1)
         {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
             while (finishWrite < 2) {
                 if (startVote()) {
                     request2vote();
@@ -116,38 +101,6 @@ public class Server implements Runnable {
         }
     }
 
-    private boolean startVote() {
-        if (finishWrite >= 2) {
-            return false;
-        }
-        if (level == 0 && serverID == 0) {
-            return true;
-        }
-        if (level == 1 && (serverID == 0 || serverID == 4)) {
-            return true;
-        }
-        if (level == 2 && (serverID == 0 || serverID == 1 || serverID == 4 || serverID == 7)) {
-            return true;
-        }
-        if (level == 3 && serverID == 0 || serverID == 1|| serverID == 7) {
-            return true;
-        }
-        return false;
-    }
-
-    private void request2vote() {
-        int[] ServersInComponent = components[serverID][level];
-
-        String reqMsg;
-
-        reqMsg = "Write Level " + level + " Start Server " + getKey(nameMap,serverID) + " Other Cleint " + ServersInComponent;
-
-        for (int c: ServersInComponent) {
-            msgToServer(c, reqMsg);
-        }
-
-    }
-
     public static class MsgHandler implements Runnable {
         private Socket socket;
         private BufferedReader in;
@@ -156,8 +109,7 @@ public class Server implements Runnable {
             this.socket = socket;
         }
 
-        @Override
-        public synchronized void run() {
+        public void run() {
             try {
                 String inputLine;
                 in = ins.get(socket);
@@ -195,6 +147,36 @@ public class Server implements Runnable {
         }
     }
 
+    private boolean startVote() {
+        if (finishWrite >= 2) {
+            return false;
+        }
+        if (level == 0 && serverID == 0) {
+            return true;
+        }
+        if (level == 1 && (serverID == 0 || serverID == 4)) {
+            return true;
+        }
+        if (level == 2 && (serverID == 0 || serverID == 1 || serverID == 4 || serverID == 7)) {
+            return true;
+        }
+        if (level == 3 && serverID == 0 || serverID == 1|| serverID == 7) {
+            return true;
+        }
+        return false;
+    }
+
+    private void request2vote() {
+        int[] ServersInComponent = components[serverID][level];
+        String reqMsg;
+
+        reqMsg = "Write Level" + level + " Start Server " + getKey(nameMap,serverID);
+
+        for (int c: ServersInComponent) {
+            msgToServer(c, reqMsg);
+        }
+    }
+
     public static boolean valideVote(int level, int fromServer) {
         int[] ServersInComponent = components[fromServer][level];
 
@@ -208,7 +190,7 @@ public class Server implements Runnable {
     }
 
     public synchronized static void msgToServer(int Server, String msg) {
-        System.out.println("Send (" + msg + ") to server " + Server + " " + socketMap.get(Server).getRemoteSocketAddress());
+        System.out.println("Send (" + msg + ") to server " + getKey(nameMap,serverID) + " " + socketMap.get(Server).getRemoteSocketAddress());
         PrintWriter out = outs.get(socketMap.get(Server));
         out.println(msg);
         out.flush();
@@ -228,22 +210,29 @@ public class Server implements Runnable {
     }
 
     public static void initConnection () {
+        int i,j;
         Socket socket;
         PrintWriter out;
         BufferedReader in;
 
         try {
-            for (int i = 0; i < serverNum; i++) {
-                if (i != serverID) {
-                    socket = new Socket(serverInfo.get(i), port);
-                    System.out.println("Server " + getKey(nameMap,serverID) + " connects to " + socket.getRemoteSocketAddress());
-                    socketMap.put(i,socket);
-
-                    out = new PrintWriter(socket.getOutputStream(), true);
-                    in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    outs.put(socket, out);
-                    ins.put(socket, in);
+            for (i = serverNum; i > 1; i--) { // i: [8,2]
+                j = serverNum - i;  // j: [0,6]
+                if (serverID > j) {
+                    System.out.println("Server " + serverID + " starts serverSocket " + serverInfo.get(j) + " port " + (port + serverID - 1));
+                    socket = new Socket(serverInfo.get(j), port + serverID - 1);
+                    socketMap.put(j,socket);
+                } else {
+                    System.out.println("Server " + serverID + " starts serverSocket port " + (port + j));
+                    ssocket = new ServerSocket(port + j);
+                    socket = ssocket.accept();
+                    socketMap.put(j+1,socket);
                 }
+
+                out = new PrintWriter(socket.getOutputStream(), true);
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                outs.put(socket, out);
+                ins.put(socket, in);
             }
         } catch (Exception e){
             e.printStackTrace();
@@ -335,9 +324,9 @@ public class Server implements Runnable {
         if (args.length > 0){
             try{
                 // get start
-                Server c = new Server(nameMap.get(args[0].charAt(0)), Integer.parseInt(args[1]));
-                Thread t = new Thread(c);
-                t.start();
+                Server s = new Server(nameMap.get(args[0].charAt(0)), Integer.parseInt(args[1]));
+                Thread st = new Thread(s);
+                st.start();
             } catch (NumberFormatException e){
                 System.err.println("Argument must be an integer");
                 System.exit(1);
