@@ -14,7 +14,6 @@ public class Server implements Runnable {
     private static int finishWrite = 0;
     private static String filePath = "/home/012/y/yx/yxm180012/cs6378/proj3/";
     private static ServerSocket ssocket;
-
     public static HashMap<Integer,Socket> socketMap = new HashMap<Integer,Socket>();
     public static HashMap<Socket,PrintWriter> outs = new HashMap<Socket,PrintWriter>();
     public static HashMap<Socket,BufferedReader> ins = new HashMap<Socket,BufferedReader>();
@@ -75,7 +74,6 @@ public class Server implements Runnable {
     }
 
     public void run() {
-
        //start threads to read sockets
         for (Socket socket : socketMap.values()) {
             Thread mh = new Thread(new MsgHandler(socket));
