@@ -1,6 +1,16 @@
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 
 public class Server implements Runnable {
     private static boolean successVote = false;
@@ -12,7 +22,7 @@ public class Server implements Runnable {
     private static int level = 0;
     private static int serverNum = 8;
     private static int finishWrite = 0;
-    private static String filePath = "/home/012/y/yx/yxm180012/cs6378/proj3/";
+    private static String filePath = "/home/011/h/hx/hxl163630/cs6378/project3/";
     private static ServerSocket ssocket;
     public static HashMap<Integer,Socket> socketMap = new HashMap<Integer,Socket>();
     public static HashMap<Socket,PrintWriter> outs = new HashMap<Socket,PrintWriter>();
@@ -44,6 +54,21 @@ public class Server implements Runnable {
         {{0,1,2,3,4,5,6}, {4,5,6}, {}, {}}
     };
 
+ // create client log file
+    public void createFile() {
+        File ClientFile = new File(filePath + getKey(nameMap,serverID) + ".txt");
+        if (!ClientFile.exists()) {
+            try {
+                ClientFile.createNewFile();
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                System.err.println("[ERROR]: Cannot create ClientFile!");
+            }
+        }
+    }
+
+
     public static HashMap<Integer, String> serverInfo = new HashMap<Integer, String>() {
         private static final long serialVersionUID = 1L;
         {
@@ -63,9 +88,11 @@ public class Server implements Runnable {
     public Server(int serverID, int port) {
         this.serverID = serverID;
         this.port = port;
-
+        // create files
+        createFile();
         // wait servers
         initConnection();
+
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
@@ -73,6 +100,7 @@ public class Server implements Runnable {
         }
     }
 
+    @Override
     public void run() {
        //start threads to read sockets
         for (Socket socket : socketMap.values()) {
@@ -81,11 +109,17 @@ public class Server implements Runnable {
         }
 
         // send completion notification after into cs 20 times
-        while (level < 1)
+        while (level < 4)
         {
-            if (finishWrite < 2) {
+            for(int i = 0; i < 2; i ++) {
                 if (startVote()) {
                     request2vote();
+                    if (valideVote(serverID, level)) {
+                        VN ++;
+                        successVote = true;
+                        String reqMsg = "Write Level " + level + " StartServer " + serverID;
+                        appendStrToFile(filePath + getKey(nameMap,serverID) + ".txt", reqMsg);
+                    }
                 }
             }
             if (successVote) {
@@ -107,6 +141,7 @@ public class Server implements Runnable {
             this.socket = socket;
         }
 
+        @Override
         public void run() {
             try {
                 String inputLine;
@@ -125,7 +160,7 @@ public class Server implements Runnable {
                         if (valideVote(fromServer, level)) {
                             VN ++;
                             successVote = true;
-                            appendStrToFile(filePath + getKey(nameMap,serverID) + "/X.txt", inputLine);
+                            appendStrToFile(filePath + getKey(nameMap,serverID) + ".txt", inputLine);
                         }
                         finishWrite ++;
                     } else if ("END".equals(splitStr[0])) {
@@ -159,7 +194,7 @@ public class Server implements Runnable {
         if (level == 2 && (serverID == 0 || serverID == 1 || serverID == 4 || serverID == 7)) {
             return true;
         }
-        if (level == 3 && serverID == 0 || serverID == 1|| serverID == 7) {
+        if (level == 3 && (serverID == 0 || serverID == 1 || serverID == 7)) {
             return true;
         }
         return false;
@@ -177,7 +212,8 @@ public class Server implements Runnable {
         }
     }
 
-    public static boolean valideVote(int level, int fromServer) {
+    public static boolean valideVote(int fromServer, int level) {
+		System.out.println("[Function] valideVote -> level: " + level + " fromServer " + fromServer);
         int[] ServersInComponent = components[fromServer][level];
 
         if (ServersInComponent.length * 2 == RU) {
