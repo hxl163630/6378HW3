@@ -7,6 +7,9 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,7 +25,7 @@ public class Server implements Runnable {
     private static int level = 0;
     private static int serverNum = 8;
     private static int finishWrite = 0;
-    private static String filePath = "/home/011/h/hx/hxl163630/cs6378/project3/";
+    //private static String filePath = "/home/011/h/hx/hxl163630/cs6378/project3/";
     private static ServerSocket ssocket;
     public static HashMap<Integer,Socket> socketMap = new HashMap<Integer,Socket>();
     public static HashMap<Socket,PrintWriter> outs = new HashMap<Socket,PrintWriter>();
@@ -54,9 +57,20 @@ public class Server implements Runnable {
         {{0,1,2,3,4,5,6}, {4,5,6}, {}, {}}
     };
 
+//    private static int[][][] components = new int[][][] {
+//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {0},{0}},
+//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
+//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
+//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
+//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
+//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
+//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
+//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {7}, {7}}
+//    };
+
  // create client log file
     public void createFile() {
-        File ClientFile = new File(filePath + getKey(nameMap,serverID) + ".txt");
+        File ClientFile = new File(getKey(nameMap,serverID) + ".txt");
         if (!ClientFile.exists()) {
             try {
                 ClientFile.createNewFile();
@@ -114,15 +128,20 @@ public class Server implements Runnable {
             for(int i = 0; i < 2; i ++) {
                 if (startVote()) {
                     request2vote();
-                    if (valideVote(serverID, level)) {
-                        VN ++;
-                        successVote = true;
-                        String reqMsg = "Write Level " + level + " StartServer " + serverID;
-                        appendStrToFile(filePath + getKey(nameMap,serverID) + ".txt", reqMsg);
+                    validateWrite(serverID, level, "Write Level " + level + " StartServer " + serverID + " current VN " + VN, VN);
+                    // sleep 1000 MS after start a vote
+                    try
+                    {
+                        Thread.sleep(10000);
+                    }
+                    catch(InterruptedException e)
+                    {
+                        e.printStackTrace();
                     }
                 }
             }
             if (successVote) {
+                System.out.println("[Function] successVote -> level: " + level + " Server " + serverID);
                 DS = components[serverID][level][0];
                 RU = components[serverID][level].length;
                 successVote = false;
@@ -130,6 +149,11 @@ public class Server implements Runnable {
 
             finishWrite = 0;
             level++;
+//            Scanner keyboard = new Scanner(System.in);
+//            while (!(keyboard.next()).equals("s")) {
+//                System.out.println("Not match, please type in again.");
+//            }
+
         }
     }
 
@@ -157,11 +181,7 @@ public class Server implements Runnable {
                     if ("Write".equals(splitStr[0])) {
                         int level = Integer.parseInt(splitStr[2]);
                         int fromServer = Integer.parseInt(splitStr[4]);
-                        if (valideVote(fromServer, level)) {
-                            VN ++;
-                            successVote = true;
-                            appendStrToFile(filePath + getKey(nameMap,serverID) + ".txt", inputLine);
-                        }
+                        validateWrite(fromServer, level, inputLine, Integer.parseInt(splitStr[splitStr.length - 1]));
                         finishWrite ++;
                     } else if ("END".equals(splitStr[0])) {
                         if (serverID == 1) {
@@ -205,15 +225,15 @@ public class Server implements Runnable {
         String reqMsg;
 
         //msg: "Write Level X StartServer X"
-        reqMsg = "Write Level " + level + " StartServer " + serverID;
+        reqMsg = "Write Level " + level + " StartServer " + serverID + " current VN " + VN;
 
         for (int c: ServersInComponent) {
             msgToServer(c, reqMsg);
         }
     }
 
-    public static boolean valideVote(int fromServer, int level) {
-		System.out.println("[Function] valideVote -> level: " + level + " fromServer " + fromServer);
+    public static boolean validateVote(int fromServer, int level) {
+        System.out.println("[Function] valideVote -> level: " + level + " fromServer " + fromServer);
         int[] ServersInComponent = components[fromServer][level];
 
         if (ServersInComponent.length * 2 == RU) {
@@ -225,6 +245,27 @@ public class Server implements Runnable {
         return false;
     }
 
+    public static void validateWrite(int fromServer, int level, String inputLine, int fromVN) {
+        if (validateVote(fromServer, level)) {
+            compareVN(fromServer, fromVN);
+            VN ++;
+            successVote = true;
+            String myStatus = " My Server ID: " + serverID + " My VN:" + VN + " My RU:" + RU + " My DS:" + DS;
+            appendStrToFile(getKey(nameMap,serverID) + ".txt", inputLine + myStatus);
+        }
+    }
+
+    public static void compareVN(int fromServer, int fromVN) {
+        if (fromVN > VN) {
+            try {
+                Files.copy(Paths.get(getKey(nameMap,fromServer) + ".txt"), Paths.get(getKey(nameMap,serverID) + ".txt"), StandardCopyOption.REPLACE_EXISTING);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public synchronized static void msgToServer(int Server, String msg) {
         System.out.println("Send (" + msg + ") to server" + socketMap.get(Server).getRemoteSocketAddress());
         PrintWriter out = outs.get(socketMap.get(Server));
@@ -234,6 +275,7 @@ public class Server implements Runnable {
 
     public static void appendStrToFile(String fileName, String str) {
         try {
+            System.out.println("[Write] Messge -> " + str + " <- write to local file");
             // Open given file in append mode.
             BufferedWriter out = new BufferedWriter(new FileWriter(fileName, true));
             out.write(str);
