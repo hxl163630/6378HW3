@@ -1,6 +1,8 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -58,8 +60,10 @@ public class Server implements Runnable {
     // create server log file
     public void createFile() {
         File ClientFile = new File(getKey(nameMap,serverID) + ".txt");
-        if (!ClientFile.exists()) {
+        File LogFile = new File(getKey(nameMap,serverID) + "_Log.txt");
+        if (!ClientFile.exists() && !LogFile.exists()) {
             try {
+                LogFile.createNewFile();
                 ClientFile.createNewFile();
             }
             catch (IOException e) {
@@ -101,6 +105,7 @@ public class Server implements Runnable {
         }
     }
 
+    @Override
     public void run() {
        //start threads to read sockets
         for (Socket socket : socketMap.values()) {
@@ -151,6 +156,7 @@ public class Server implements Runnable {
             this.socket = socket;
         }
 
+        @Override
         public void run() {
             try {
                 String inputLine;
@@ -234,7 +240,22 @@ public class Server implements Runnable {
             appendStrToFile(getKey(nameMap,serverID) + ".txt", inputLine);
             System.out.println(inputLine + " RU " + RU + " DS " + DS);
         }
+        wirteLog();
         finishWrite ++;
+    }
+
+    public static void wirteLog() {
+        try (BufferedReader br = new BufferedReader(new FileReader(getKey(nameMap,serverID) + ".txt"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+               // process the line.
+                appendStrToFile(getKey(nameMap,serverID) + "_Log.txt", line);
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void compareVN(int fromServer, int fromVN) {
