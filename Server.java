@@ -10,10 +10,10 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.Scanner;
 
 public class Server implements Runnable {
     private static boolean successVote = false;
@@ -46,27 +46,27 @@ public class Server implements Runnable {
     };
 
     //serverID, level, ReachableServer
-    private static int[][][] components = new int[][][] {
-        {{1,2,3,4,5,6,7}, {1,2,3}, {},{}},
-        {{0,2,3,4,5,6,7}, {0,2,3}, {2,3}, {2,3,4,5,6}},
-        {{0,1,3,4,5,6,7}, {0,1,3}, {1,3}, {1,3,4,5,6}},
-        {{0,1,2,4,5,6,7}, {0,1,2}, {1,2}, {1,2,4,5,6}},
-        {{0,1,2,3,5,6,7}, {5,6,7}, {5,6}, {1,2,3,5,6}},
-        {{0,1,2,3,4,6,7}, {4,6,7}, {4,6}, {1,2,3,4,6}},
-        {{0,1,2,3,4,5,7}, {4,5,7}, {4,5}, {1,2,3,4,5}},
-        {{0,1,2,3,4,5,6}, {4,5,6}, {}, {}}
-    };
-
 //    private static int[][][] components = new int[][][] {
-//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {0},{0}},
-//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
-//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
-//        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
-//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
-//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
-//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
-//        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {7}, {7}}
+//        {{1,2,3,4,5,6,7}, {1,2,3}, {},{}},
+//        {{0,2,3,4,5,6,7}, {0,2,3}, {2,3}, {2,3,4,5,6}},
+//        {{0,1,3,4,5,6,7}, {0,1,3}, {1,3}, {1,3,4,5,6}},
+//        {{0,1,2,4,5,6,7}, {0,1,2}, {1,2}, {1,2,4,5,6}},
+//        {{0,1,2,3,5,6,7}, {5,6,7}, {5,6}, {1,2,3,5,6}},
+//        {{0,1,2,3,4,6,7}, {4,6,7}, {4,6}, {1,2,3,4,6}},
+//        {{0,1,2,3,4,5,7}, {4,5,7}, {4,5}, {1,2,3,4,5}},
+//        {{0,1,2,3,4,5,6}, {4,5,6}, {}, {}}
 //    };
+
+    private static int[][][] components = new int[][][] {
+        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {0},{0}},
+        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
+        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
+        {{0,1,2,3,4,5,6,7}, {0,1,2,3}, {1,2,3}, {1,2,3,4,5,6}},
+        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
+        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
+        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {4,5,6}, {1,2,3,4,5,6}},
+        {{0,1,2,3,4,5,6,7}, {4,5,6,7}, {7}, {7}}
+    };
 
  // create client log file
     public void createFile() {
@@ -125,20 +125,22 @@ public class Server implements Runnable {
         // send completion notification after into cs 20 times
         while (level < 4)
         {
-            for(int i = 0; i < 2; i ++) {
+            while(finishWrite < 2){
                 if (startVote()) {
                     request2vote();
                     validateWrite(serverID, level, "Write Level " + level + " StartServer " + serverID + " current VN " + VN, VN);
                     // sleep 1000 MS after start a vote
                     try
                     {
-                        Thread.sleep(10000);
+                        Thread.sleep(1000);
                     }
                     catch(InterruptedException e)
                     {
                         e.printStackTrace();
                     }
                 }
+
+                System.out.println("[Finish Write Number] " + finishWrite);
             }
             if (successVote) {
                 System.out.println("[Function] successVote -> level: " + level + " Server " + serverID);
@@ -149,10 +151,10 @@ public class Server implements Runnable {
 
             finishWrite = 0;
             level++;
-//            Scanner keyboard = new Scanner(System.in);
-//            while (!(keyboard.next()).equals("s")) {
-//                System.out.println("Not match, please type in again.");
-//            }
+            Scanner keyboard = new Scanner(System.in);
+            while (!(keyboard.next()).equals("s")) {
+                System.out.println("Not match, please type in again.");
+            }
 
         }
     }
@@ -182,7 +184,6 @@ public class Server implements Runnable {
                         int level = Integer.parseInt(splitStr[2]);
                         int fromServer = Integer.parseInt(splitStr[4]);
                         validateWrite(fromServer, level, inputLine, Integer.parseInt(splitStr[splitStr.length - 1]));
-                        finishWrite ++;
                     } else if ("END".equals(splitStr[0])) {
                         if (serverID == 1) {
                             for (PrintWriter outf : outs.values()) {
@@ -228,16 +229,24 @@ public class Server implements Runnable {
         reqMsg = "Write Level " + level + " StartServer " + serverID + " current VN " + VN;
 
         for (int c: ServersInComponent) {
+            if (c == serverID) {
+                continue;
+            }
             msgToServer(c, reqMsg);
         }
     }
 
     public static boolean validateVote(int fromServer, int level) {
-        System.out.println("[Function] valideVote -> level: " + level + " fromServer " + fromServer);
+        String myStatus = " My Server ID: " + serverID + " My VN:" + VN + " My RU:" + RU + " My DS:" + DS;
         int[] ServersInComponent = components[fromServer][level];
-
+        System.out.println("[Function] valideVote -> level: " + level + " fromServer " + fromServer + " ServersInComponent length:" + ServersInComponent.length + myStatus);
         if (ServersInComponent.length * 2 == RU) {
-            return Arrays.asList(ServersInComponent).contains(DS);
+            for(int i: ServersInComponent)  {
+                if (i == DS) {
+                    return true;
+                }
+            }
+            //return Arrays.asList(ServersInComponent).contains(DS);
         }
         if (ServersInComponent.length * 2 > RU) {
             return true;
@@ -253,6 +262,7 @@ public class Server implements Runnable {
             String myStatus = " My Server ID: " + serverID + " My VN:" + VN + " My RU:" + RU + " My DS:" + DS;
             appendStrToFile(getKey(nameMap,serverID) + ".txt", inputLine + myStatus);
         }
+        finishWrite ++;
     }
 
     public static void compareVN(int fromServer, int fromVN) {
