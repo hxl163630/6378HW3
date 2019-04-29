@@ -20,6 +20,7 @@ import java.util.Scanner;
 public class Server implements Runnable {
     private static boolean successVote = false;
     private static int port;
+    private static int writeTime = 0;
     private static int VN = 1;
     private static int RU = 8;
     private static int DS = 0;
@@ -240,13 +241,15 @@ public class Server implements Runnable {
             appendStrToFile(getKey(nameMap,serverID) + ".txt", inputLine);
             System.out.println(inputLine + " RU " + RU + " DS " + DS);
         }
-        wirteLog();
+        writeTime ++;
+        writeLog();
         finishWrite ++;
     }
 
-    public static void wirteLog() {
+    public static void writeLog() {
+        String line = "******************* Write Attempt " + writeTime + " *******************";
+        appendStrToFile(getKey(nameMap,serverID) + "_Log.txt", line);
         try (BufferedReader br = new BufferedReader(new FileReader(getKey(nameMap,serverID) + ".txt"))) {
-            String line;
             while ((line = br.readLine()) != null) {
                // process the line.
                 appendStrToFile(getKey(nameMap,serverID) + "_Log.txt", line);
